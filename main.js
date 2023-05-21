@@ -168,13 +168,21 @@ const app = {
 
         //xử lí next song
         nextBtn.onclick = function() {
-            _this.nextSong()
+            if(_this.isRandom) {
+                _this.playRandomSong()
+            } else {
+                _this.nextSong()
+            }
             audio.play()
         }
 
          //xử lí next song
          prevBtn.onclick = function() {
-            _this.prevSong()
+            if(_this.isRandom) {
+                _this.playRandomSong()
+            } else {
+                _this.prevSong()
+            }
             audio.play()
         }
 
