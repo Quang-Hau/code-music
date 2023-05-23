@@ -1,7 +1,11 @@
 const $$ = document.querySelectorAll.bind(document);
 const $ = document.querySelector.bind(document);
+
+const PLAYER_STORAGE_KEY = 'music player'
+
 const heading = $('.header h2')
 const cdThumb = $('.cd-thumb')
+const thumb = $('.thumb')
 const audio = $('#audio')
 const cd = $('.cd')
 const playBtn = $('.btn-toggle-play')
@@ -10,13 +14,18 @@ const progress = $('#progress')
 const nextBtn  = $('.btn-next')
 const prevBtn  = $('.btn-prev')
 const randomBtn = $('.btn-random')
-
+const repeatBtn = $('.btn-repeat')
+const playlist = $('.playlist')
 
 
 const app = {
     currentIndex: 0,
     isPlaying: false,
     isRandom: false,
+    isRepeat: false,
+    isThumd: false,
+    config: JSON.parse(localStorage.getItem(PLAYER_STORAGE_KEY)) || {}
+    ,
     songs: [
         {
             name: 'và ngày nào đó',
@@ -79,11 +88,14 @@ const app = {
             image:'assets/list-image-songs/img-song-10.jpg'
         },
     ],
-
+    setConfig: function(key,value) {
+        this.config[key] = value;
+        localStorage.setItem(PLAYER_STORAGE_KEY ,JSON.stringify(this.config));
+    },
     render: function() {
-        const htmls = this.songs.map((song) => {
+        const htmls = this.songs.map((song,index) => {
             return `
-            <div class="song">
+            <div class="song ${index === this.currentIndex ? 'active' : ''} " data-index="${index}">
             <div class="thumb" style="background-image: url('${song.image}')">
             </div>
             <div class="body">
@@ -111,7 +123,6 @@ const app = {
     handleEvents: function() {
         const _this = this
         const cdWidth = cd.offsetWidth
-
         // xủ lí cd quay và dừng
         const cdThumbAnimate = cdThumb.animate([
             {transform: 'rotate(360deg)'}
@@ -141,14 +152,17 @@ const app = {
         // khi song được play
         audio.onplay = function() {
             _this.isPlaying = true
+            _this.isThumd = true
             player.classList.add('playing')
             cdThumbAnimate.play()
         }
          // khi song pause 
          audio.onpause = function() {
             _this.isPlaying = false
+            _this.isThumd = false
             player.classList.remove('playing')
             cdThumbAnimate.pause()
+
         }
 
         // khi tiến độ bài hat thay đổi
@@ -174,9 +188,11 @@ const app = {
                 _this.nextSong()
             }
             audio.play()
+            _this.render() 
+            _this.scrollToActiveSong()
         }
 
-         //xử lí next song
+         //xử lí prev song
          prevBtn.onclick = function() {
             if(_this.isRandom) {
                 _this.playRandomSong()
@@ -184,23 +200,81 @@ const app = {
                 _this.prevSong()
             }
             audio.play()
+            _this.render()
+            _this.scrollToActiveSong()
         }
 
         // random song
-        randomBtn.onclick = function() {
+        randomBtn.onclick = function() {           
             _this.isRandom = !_this.isRandom
+            _this.setConfig('isRandom', !_this.isRandom)
             randomBtn.classList.toggle('active', _this.isRandom )
+        }
+
+        // xứ lí phát lại bài hát
+        repeatBtn.onclick = function() {
+            _this.isRepeat = !_this.isRepeat
+            _this.setConfig('isRepeat', !_this.isRepeat)
+            repeatBtn.classList.toggle('active',  _this.isRepeat )
+        }
+
+        // tự động qua bài khi hết nhạc
+        audio.onended = function() {
+            if(_this.isRepeat) {
+                audio.play()
+            }else{
+                nextBtn.click() 
+            }
+        }
+        // lắng nghe hành vi click vào playlist
+        playlist.onclick = function(e) {
+            const songElement = e.target.closest('.song:not(.active)')
+            const optionElement = e.target.closest('.option')
+            if(songElement || optionElement) {
+                if(songElement) {
+                   _this.currentIndex  = Number(songElement.getAttribute('data-index'))
+                   _this.loadCurentSong()
+                   _this.render()
+                   audio.play()
+                }
+
+                if(optionElement) {
+                    
+                }
+            }
         }
     },
 
+    scrollToActiveSong: function() {
+        setTimeout(() => {
+            if( this.currentIndex === 0) {
+                $('.song.active').scrollIntoView({
+                    behavior : 'smooth',
+                    block: 'end'
+                })
+            }else{
+                $('.song.active').scrollIntoView({
+                    behavior : 'smooth',
+                    block: 'nearest'
+                })
+            }
+        },300)
+    },
+
     loadCurentSong: function() {
-        heading.innerText = this.currentSong.name
+        heading.textConTent = this.currentSong.name
         cdThumb.style.backgroundImage = `url(${this.currentSong.image})`
         audio.src = this.currentSong.path
     },
 
+    loadConfig: function() {
+        this.isRandom = this.config.isRandom
+        this.isRepeat = this.config.isRepeat
+    },
+
     nextSong: function() {
         this.currentIndex++
+         // xử lí phát lại bài hát khi list đến đầu 
         if(this.currentIndex >= this.songs.length) {
             this.currentIndex = 0
         }
@@ -208,6 +282,7 @@ const app = {
     },
     prevSong: function() {
         this.currentIndex--
+        // xử lí phát lại bài hát khi list đến cuối 
         if(this.currentIndex < 0) {
             this.currentIndex = this.songs.length -1
         }
@@ -224,6 +299,8 @@ const app = {
         this.loadCurrentSong();
     },
     start: function() {
+        //gán cấu hình từ config vào ứng dụng
+        this.loadConfig()
         
         //định nghĩa thuộc tính cho object
         this.defineProperties()
@@ -236,6 +313,10 @@ const app = {
 
         //render playlist
         this.render()
+
+        // hiển thì trạng thái ban đầu cảu btn repeat và random
+        randomBtn.classList.toggle('active', this.isRandom )
+        repeatBtn.classList.toggle('active',  this.isRepeat )
     },
 }
 
